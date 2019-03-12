@@ -11,16 +11,23 @@
 // Program name: hasher.c
 
 void readFile(char inputArray[], int args, char** arg);
-void writeFile(char hash[], int args, char** arg);
+void writeFile(char hash[], char inputArray[], int args, char** arg, double timeTaken);
 int randomNum();
 void hasher(char hash[], char inputArray[], int args, char** arg);
 
 int main(int args, char** arg) {
 	char inputArray[1000000], hash[65];
+	double timeTaken;
+	struct timeval start_time, end_time;
+	gettimeofday(&start_time, NULL);
 
 	readFile(inputArray, args, arg);
 	hasher(hash, inputArray, args, arg);
-	writeFile(inputArray, args, arg);
+
+	gettimeofday(&end_time, NULL);
+	timeTaken = ((((double)end_time.tv_sec) - ((double)start_time.tv_sec))+((float)end_time.tv_usec-(float)start_time.tv_usec)/1000000.0);
+
+	writeFile(hash, inputArray, args, arg, timeTaken);
 
 	return 0;
 }
@@ -112,7 +119,7 @@ void hasher(char hash[], char inputArray[], int args, char** arg) {
 	return;
 }
 
-void writeFile(char inputArray[], int args, char** arg) {
+void writeFile(char hash[], char inputArray[], int args, char** arg, double timeTaken) {
 	int i = 0;
 	char outputName[100];
 	strcpy(outputName, arg[2]);
@@ -128,6 +135,14 @@ void writeFile(char inputArray[], int args, char** arg) {
 	else {
 		for (i=0; inputArray[i] != '\0'; i++) 
 			fputc(inputArray[i], outfile);
+
+		fputs("\n\nCorresponding hash value: ", outfile);
+
+		for (i=0; i<65; i++)
+			fputc(hash[i], outfile);
+
+		fprintf(outfile, "\n\nTime taken: %f seconds.", timeTaken);
+
 		fclose(outfile);
 	}
 
