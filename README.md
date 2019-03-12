@@ -7,7 +7,7 @@ Nathan Hodgson
 
 ### Program Description
 
-This program calculates a hash given a user-specified number of leading zeroes and desired number of processes. 
+This program calculates a hash given a user-specified number of leading zeroes and desired number of processes. To calculate a unique hash each time, the program generates a random number and appends it to the input array, followed by a counter which is also appended to the array for every iteration. 
 
 ### Execution Specifications
 
@@ -18,7 +18,7 @@ This program calculates a hash given a user-specified number of leading zeroes a
 
 ### Sample Command Line Argument
 
-./main input.txt 15 4
+./main sampleInput.txt 15 4
 
 ### Output
 
