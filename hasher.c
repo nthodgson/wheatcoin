@@ -2,37 +2,50 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <signal.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <sys/wait.h>
 #include <time.h>
 #include "sha-256.h"
 
 // Programmer: Nathan Hodgson
 // Program name: hasher.c
 
-void readFile(char inputArray[], int args, char** arg);
-void writeFile(char hash[], char inputArray[], int args, char** arg, double timeTaken);
+void readFile(char* inputArray, int args, char** arg);
 int randomNum();
-void hasher(char hash[], char inputArray[], int args, char** arg);
+void sigIntHandler(int sig);
+void hasher(char hash[], char* inputArray, int args, char** arg);
 
-int main(int args, char** arg) {
-	char inputArray[1000000], hash[65];
-	double timeTaken;
-	struct timeval start_time, end_time;
-	gettimeofday(&start_time, NULL);
+int writePipe = 0; // Declare writing end of pipe as global for signal handler
 
+int main(int args, char** arg) { // Driver function
+
+	char hash[65];
+	writePipe = atoi(arg[2]);
+	signal(SIGINT, sigIntHandler);
+
+	char* inputArray;
+	inputArray = (char *) malloc(sizeof(char) * 1000000);
+	
 	readFile(inputArray, args, arg);
 	hasher(hash, inputArray, args, arg);
 
-	gettimeofday(&end_time, NULL);
-	timeTaken = ((((double)end_time.tv_sec) - ((double)start_time.tv_sec))+((float)end_time.tv_usec-(float)start_time.tv_usec)/1000000.0);
+	free(inputArray);
 
-	writeFile(hash, inputArray, args, arg, timeTaken);
+	printf("Hasher has found a solution, terminating...\n");
 
 	return 0;
 }
 
-void readFile(char inputArray[], int args, char** arg) { // Read in the input file and append it to the array
+/* ====================================================================================
+readFile(): opens a user-specified command line filename given through arg[1] and appends
+the contents of the file to the dynamically allocated array "inputArray", followed by 
+a null terminator. Must have exactly 4 command line arguments for this function to
+ execute properly. 
+==================================================================================== */
+
+void readFile(char* inputArray, int args, char** arg) { 
 	char fileName[100], buffer[100];
 	int c;
 	int i = 0;
@@ -54,7 +67,7 @@ void readFile(char inputArray[], int args, char** arg) { // Read in the input fi
 	}
 	else {
 		c = fgetc(infile);
-		while (c != 0) {
+		while (c != 0) { // Stores entire file into inputArray, character by character
 			if (feof(infile)) {
 				break;
 			}
@@ -62,15 +75,20 @@ void readFile(char inputArray[], int args, char** arg) { // Read in the input fi
 			c = fgetc(infile);
 			i++;
 		}
+		inputArray[i] = '\0';
 
 		fclose(infile);
 	}
 	return;
 }
 
-int randomNum() { // Generate random number and append it to the end of the array
+/* ====================================================================================
+randomNum(): generates a random integer between 0 and 999999 seeded by using the time
+of day and returns the number.
+==================================================================================== */
+
+int randomNum() { 
 	int digits = 6;
-	int i;
 	struct timeval current_time;
 
 	gettimeofday(&current_time, NULL);
@@ -80,14 +98,25 @@ int randomNum() { // Generate random number and append it to the end of the arra
 	return num;
 }
 
-void hasher(char hash[], char inputArray[], int args, char** arg) {
-	char buffer[1000000];
-	int i, count, zeroes, num = 0;
+/* ====================================================================================
+hasher(): Finds a hash value in hex given a specified number of leading zeroes. The 
+file contents followed by the random number and count which gave the correct hash value
+are appended to the "inputArray".
+==================================================================================== */
+
+void hasher(char hash[], char* inputArray, int args, char** arg) { 
+	char* buffer;
+	buffer = (char *) malloc(sizeof(char) * 1000000);
+	int numArray[2];
+	int i = 0;
+	int count = 0;
+	int zeroes = 0;
+	int num = 0;
 	int zeroesNeeded = atoi(arg[3]);
 
 	num = randomNum();
 
-	while (zeroes < zeroesNeeded) {
+	while (zeroes < zeroesNeeded) { // Continuously hashes the buffer with an incremented count until zeroesNeeded is found
 
 		if (count > 999999) {
 			num = randomNum();
@@ -98,7 +127,7 @@ void hasher(char hash[], char inputArray[], int args, char** arg) {
 		sprintf(buffer, "%s%06d%06d", inputArray, num, count);
 		sha_256_string(hash, buffer, strlen(buffer));
 
-		while (hash[i] == '0') {
+		while (hash[i] == '0') { // Increments "zeroes" by 4 for each leading hex value equal to 0
 			zeroes += 4;
 			i++;
 		}
@@ -114,37 +143,29 @@ void hasher(char hash[], char inputArray[], int args, char** arg) {
 		count++;
 	}
 
+	numArray[0] = num;
+	numArray[1] = count-1; // Decrement count before appending to numArray
+
+	printf("\nHash: %s\n", hash);
+
+	write(writePipe, numArray, 2 * sizeof(int));
+	close(writePipe);
+
 	sprintf(inputArray, "%s", buffer);
 
-	return;
-}
-
-void writeFile(char hash[], char inputArray[], int args, char** arg, double timeTaken) {
-	int i = 0;
-	char outputName[100];
-	strcpy(outputName, arg[2]);
-
-	FILE* outfile; 
-	outfile = fopen(outputName, "w");
-
-	if (outfile == NULL) {
-		printf("Invalid output file name... Please try again.\n");
-		fclose(outfile);
-		exit(1);
-	} 
-	else {
-		for (i=0; inputArray[i] != '\0'; i++) 
-			fputc(inputArray[i], outfile);
-
-		fputs("\n\nCorresponding hash value: ", outfile);
-
-		for (i=0; i<65; i++)
-			fputc(hash[i], outfile);
-
-		fprintf(outfile, "\n\nTime taken: %f seconds.", timeTaken);
-
-		fclose(outfile);
-	}
+	free(buffer);
 
 	return;
 }
+
+/* ====================================================================================
+sigIntHandler(): function is triggered when the program is sent a SIGINT signal. Once
+this signal is received, the function closes the writing end of the pipe and exits.
+==================================================================================== */
+
+void sigIntHandler(int sig) {
+	close(writePipe);
+	exit(0);
+}
+
+
