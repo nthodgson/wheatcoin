@@ -12,10 +12,16 @@ This program calculates a hash given a user-specified number of leading zeroes a
 ### Compilation Specifications
 
 Compile main.c with the following command line arguments:
-- gcc main.c sha-256.c -o main -g
+
+```shell
+gcc main.c sha-256.c -o main -g
+```
 
 (May also need to compile hasher.c, if so):
-- gcc hasher.c sha-256.c -o hasher -g
+
+```shell
+gcc hasher.c sha-256.c -o hasher -g
+```
 
 ### Execution Specifications
 
@@ -27,7 +33,9 @@ Run main.c with the following command line arguments:
 
 ### Sample Command Line Argument
 
+```shell
 ./main sampleInput.txt output.txt 15 4
+```
 
 ### Output
 
